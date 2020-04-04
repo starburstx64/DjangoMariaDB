@@ -82,3 +82,76 @@ def makepassword(request,password):
     response_data = {}
     response_data['password'] = hashPassword
     return JsonResponse(response_data, status=200)
+
+
+def get_all_movies(request):
+    if request.method == 'POST':
+        api_key = ApiKey()
+        check_result = api_key.check(request)
+
+        if check_result == type(True):
+            isJson = checkJson()
+            isJsonResult = isJson.isJson(request.body)
+
+            if isJsonResult != type(True):
+                return JsonResponse(isJsonResult, status=400)
+
+            missingAttr = False
+            missingAttrMsg = ""
+
+            if 'user' not in json_data:
+                missingAttr = True
+                missingAttrMsg = "user is required"
+            elif 'password' not in json_data:
+                missingAttr = True
+                missingAttrMsg = "password is required"
+
+            if missingAttr == True:
+                response_data['result'] = 'error'
+                response_data['message'] = missingAttrMsg
+                return JsonResponse(response_data, status=401)
+
+            try:
+                userObj = ApiUsers.objects.get(user = json_data['user'])
+                password = json_data['password']
+                hashedPassword = userObj.password
+
+                check_password_result = check_password(password, hashedPassword)
+
+                if check_password_result == False:
+                    responseData['result'] = 'error'
+                    responseData['message'] = 'The user does not exist or the password is incorrect'
+                    return JsonResponse(responseData, status=401)
+
+                if userObj.api_key != request.headers["user-api-key"]:
+                    response_data['result'] = 'error'
+                    response_data['message'] = 'Invalid Api-key'
+                    return JsonResponse(response_data, status = 401)
+
+                response_data['result'] = 'success'
+                movies = Movie.objects.all()
+                movie_list = []
+                for movie in movies:
+                    data = {}
+                    data['id'] = movie.movieid
+                    data['title'] = movie.movietitle
+                    data['releaseDate'] = movie.releasedate
+                    data['imageUrl'] = movie.imageurl
+                    data['description'] = movie.description
+                    movieList.append(response_movie)
+                response_data['movies'] = movieList
+                return JsonResponse(response_data,status=200)
+
+            except Exception as e:
+                response_data['result'] = 'error'
+                response_data['message'] = 'The user does not exist or the password is incorrect'
+                return JsonResponse(response_data,status=401)
+
+        else:
+            return JsonResponse(check_result, status=400)
+
+    else:
+        responseData = {}
+        responseData['result'] = 'error'
+        responseData['message'] = 'Invalid Request'
+        return JsonResponse(responseData, status=400)
